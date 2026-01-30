@@ -1,0 +1,267 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Dict, List, Optional
+from pydantic import BaseModel
+
+from database import get_db
+from models.assessment import Assessment
+from models.benchmark import Benchmark
+from models.question import Question
+from services.scoring_engine import ScoringEngine
+from services.benchmark_engine import BenchmarkEngine
+from services.roadmap_generator import RoadmapGenerator
+
+
+router = APIRouter(prefix="/api/report", tags=["report"])
+
+
+class DimensionScore(BaseModel):
+    dimension: str
+    score: float
+    benchmark_score: float
+    status: str  # "strong", "adequate", "weak"
+
+
+class SalaryInfo(BaseModel):
+    current: Optional[float]
+    expected_min: float
+    expected_max: float
+    expected_median: float
+    alignment: str
+    gap: Optional[float]
+    potential_roi: Optional[float]
+    market_percentile: Optional[int]
+
+
+class RadarChartItem(BaseModel):
+    dimension: str
+    user_score: float
+    benchmark_score: float
+
+class LearningResource(BaseModel):
+    title: str
+    type: str
+    url: str
+
+class NextLevelPreview(BaseModel):
+    target_role: str
+    target_level: str
+    salary_min: float
+    salary_max: float
+
+class CareerReportResponse(BaseModel):
+    assessment_id: int
+    overall_score: float
+    readiness_level: str
+    dimension_scores: List[DimensionScore]
+    salary_info: Optional[SalaryInfo]
+    company_fit: str
+    company_fit_explanation: str
+    weak_dimensions: List[str]
+    quick_wins: List[str]
+    radar_chart_data: List[RadarChartItem]
+    interview_questions: List[str]
+    learning_resources: List[LearningResource]
+    next_level_preview: Optional[NextLevelPreview] = None
+    # Contextual info
+    location: Optional[str] = None
+    tech_stack: Optional[List[str]] = None
+    current_level: Optional[str] = None
+
+
+class WeeklyTasks(BaseModel):
+    week: int
+    tasks: List[str]
+
+
+class RoadmapResponse(BaseModel):
+    assessment_id: int
+    roadmap: Dict[str, List[WeeklyTasks]]
+
+
+@router.get("/{assessment_id}", response_model=CareerReportResponse)
+def get_report(
+    assessment_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get complete career report for an assessment.
+    """
+    from services.salary_analyzer import SalaryAnalyzer
+    from services.career_fit_engine import CareerFitEngine
+    
+    # Get assessment
+    assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    if not assessment.is_complete:
+        raise HTTPException(status_code=400, detail="Assessment not completed")
+    
+    # Get salary info if benchmark exists
+    salary_info = None
+    radar_chart_data = []
+    next_level_preview = None
+    readiness_level = assessment.readiness_level
+    
+    benchmark = BenchmarkEngine.find_matching_benchmark(
+        db,
+        assessment.role_id,
+        assessment.years_of_experience,
+        assessment.company_type,
+        assessment.target_role,
+        location=assessment.location,
+        tech_stack=assessment.tech_stack
+    )
+    
+    # Re-calculate scores live using latest engine logic
+    questions = db.query(Question).filter(Question.role_id == assessment.role_id).all()
+    scores = ScoringEngine.calculate_scores(assessment.answers, questions)
+    dimension_scores = scores["dimension_scores"]
+    overall_score = scores["overall_score"]
+
+    # Identify weak dimensions for growth insights
+    weak_dimensions = ScoringEngine.identify_weak_dimensions(
+        dimension_scores, # Changed from assessment.dimension_scores
+        threshold=70.0  # Normalized 0-100 threshold
+    )
+    
+    # Format dimension scores and radar chart data
+    dimension_scores_list = []
+    benchmark_val = benchmark.ready_threshold if benchmark else 80.0
+    
+    for dimension, score in dimension_scores.items(): # Changed from assessment.dimension_scores
+        status = "strong" if score >= 85 else "adequate" if score >= 70 else "weak"
+        dimension_scores_list.append(DimensionScore(
+            dimension=dimension,
+            score=score,
+            benchmark_score=benchmark_val,
+            status=status
+        ))
+        radar_chart_data.append(RadarChartItem(
+            dimension=dimension,
+            user_score=score,
+            benchmark_score=benchmark_val
+        ))
+    
+    if benchmark:
+        salary_range = BenchmarkEngine.get_expected_salary_range(benchmark)
+        salary_gap = SalaryAnalyzer.get_salary_gap(
+            assessment.current_salary,
+            salary_range["min"],
+            salary_range["max"]
+        )
+        potential_roi = SalaryAnalyzer.calculate_roi(
+            assessment.current_salary,
+            salary_range["median"]
+        )
+        market_percentile = SalaryAnalyzer.get_market_percentile(
+            assessment.current_salary,
+            salary_range["min"],
+            salary_range["max"]
+        )
+        
+        salary_info = SalaryInfo(
+            current=assessment.current_salary,
+            expected_min=salary_range["min"],
+            expected_max=salary_range["max"],
+            expected_median=salary_range["median"],
+            alignment=SalaryAnalyzer.analyze_salary(
+                assessment.current_salary,
+                salary_range["min"],
+                salary_range["max"]
+            ),
+            gap=salary_gap,
+            potential_roi=potential_roi,
+            market_percentile=market_percentile
+        )
+        
+        # Readiness level re-calculation (in case benchmarks changed or scores were adjusted)
+        readiness_level = BenchmarkEngine.determine_readiness(
+            overall_score, # Changed from assessment.overall_score
+            benchmark
+        )
+        
+        # Next level preview
+        next_benchmark = BenchmarkEngine.get_next_level_benchmark(db, benchmark)
+        if next_benchmark:
+            next_level_preview = NextLevelPreview(
+                target_role=assessment.target_role or "Engineer",
+                target_level=next_benchmark.target_level,
+                salary_min=next_benchmark.salary_min,
+                salary_max=next_benchmark.salary_max
+            )
+    
+    quick_wins = RoadmapGenerator.get_quick_wins(
+        weak_dimensions,
+        tech_stack=assessment.tech_stack
+    )
+    
+    interview_questions = RoadmapGenerator.get_interview_questions(weak_dimensions)
+    learning_resources = RoadmapGenerator.get_learning_resources(weak_dimensions)
+    
+    # Get company fit explanation
+    company_fit_explanation = CareerFitEngine.get_fit_explanation(
+        assessment.company_fit
+    )
+    
+    return CareerReportResponse(
+        assessment_id=assessment.id,
+        overall_score=overall_score,
+        readiness_level=readiness_level,
+        dimension_scores=dimension_scores_list,
+        salary_info=salary_info,
+        company_fit=assessment.company_fit,
+        company_fit_explanation=company_fit_explanation,
+        weak_dimensions=weak_dimensions,
+        quick_wins=quick_wins,
+        radar_chart_data=radar_chart_data,
+        interview_questions=interview_questions,
+        learning_resources=learning_resources,
+        next_level_preview=next_level_preview,
+        location=assessment.location,
+        tech_stack=assessment.tech_stack,
+        current_level=assessment.current_level
+    )
+
+
+@router.get("/{assessment_id}/roadmap", response_model=RoadmapResponse)
+def get_roadmap(
+    assessment_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get personalized roadmap for an assessment.
+    """
+    # Get assessment
+    assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    if not assessment.is_complete:
+        raise HTTPException(status_code=400, detail="Assessment not completed")
+    
+    # Identify weak dimensions
+    weak_dimensions = ScoringEngine.identify_weak_dimensions(
+        assessment.dimension_scores,
+        threshold=3.0
+    )
+    
+    # Generate roadmap
+    roadmap_data = RoadmapGenerator.generate_roadmap(
+        weak_dimensions,
+        tech_stack=assessment.tech_stack
+    )
+    
+    # Format response
+    formatted_roadmap = {}
+    for dimension, weeks in roadmap_data.items():
+        formatted_roadmap[dimension] = [
+            WeeklyTasks(week=week_data["week"], tasks=week_data["tasks"])
+            for week_data in weeks
+        ]
+    
+    return RoadmapResponse(
+        assessment_id=assessment.id,
+        roadmap=formatted_roadmap
+    )
