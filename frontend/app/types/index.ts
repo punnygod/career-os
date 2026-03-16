@@ -5,6 +5,20 @@ export interface Role {
     description: string;
 }
 
+export interface Stack {
+    id: number;
+    name: string;
+    description: string;
+    multiplier: number;
+}
+
+export interface Certificate {
+    id: number;
+    name: string;
+    provider: string;
+    multiplier: number;
+}
+
 export interface Question {
     id: number;
     role_id: number;
@@ -30,6 +44,7 @@ export interface Assessment {
 
 export interface DimensionScore {
     dimension: string;
+    category: string;
     score: number;
     status: string;
 }
@@ -43,6 +58,25 @@ export interface SalaryInfo {
     gap?: number;
 }
 
+export interface RadarChartItem {
+    dimension: string;
+    user_score: number;
+    benchmark_score: number;
+}
+
+export interface LearningResource {
+    title: string;
+    type: string;
+    url: string;
+}
+
+export interface NextLevelPreview {
+    target_role: string;
+    target_level: string;
+    salary_min: number;
+    salary_max: number;
+}
+
 export interface CareerReport {
     assessment_id: number;
     overall_score: number;
@@ -53,6 +87,13 @@ export interface CareerReport {
     company_fit_explanation: string;
     weak_dimensions: string[];
     quick_wins: string[];
+    radar_chart_data: RadarChartItem[];
+    interview_questions: string[];
+    learning_resources: LearningResource[];
+    next_level_preview?: NextLevelPreview;
+    location?: string;
+    tech_stack?: string[];
+    current_level?: string;
 }
 
 export interface RoadmapWeek {
@@ -88,11 +129,12 @@ export interface AuthResponse {
 export interface ProfileFormData {
     role_id: number;
     years_of_experience: number;
-    company_type: 'Service' | 'Startup' | 'Product';
+    company_type: 'Service' | 'Startup' | 'Product' | 'MNC';
     current_salary: number;
     target_role: string;
     location?: string;
     tech_stack?: string[];
+    certifications?: string[];
     current_level?: string;
 }
 

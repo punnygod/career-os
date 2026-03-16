@@ -26,7 +26,9 @@ class Assessment(Base):
     
     # Contextual parameters
     location = Column(String, nullable=True)
-    tech_stack = Column(JSON, nullable=True)  # List of strings
+    primary_stack = Column(String, nullable=True)
+    tech_stack = Column(JSON, nullable=True)  # List of strings (secondary stacks)
+    certifications = Column(JSON, nullable=True)  # List of strings
     current_level = Column(String, nullable=True)
     
     # Answers stored as JSON

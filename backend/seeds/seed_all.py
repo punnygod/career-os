@@ -42,6 +42,16 @@ def seed_all():
     print("Seeding benchmarks...")
     seed_benchmarks()
     print()
+
+    # Import and seed new modules
+    from seeds.stack_seed import seed_stacks
+    from seeds.certificate_seed import seed_certificates
+    print("Seeding stacks...")
+    seed_stacks()
+    print()
+    print("Seeding certificates...")
+    seed_certificates()
+    print()
     
     print("=" * 60)
     print("✓ All seed data loaded successfully!")

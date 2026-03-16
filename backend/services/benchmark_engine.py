@@ -1,12 +1,13 @@
 from typing import Optional, Dict, List
+from datetime import datetime
 from sqlalchemy.orm import Session
 from models.benchmark import Benchmark
 
 
 class BenchmarkEngine:
     """
-    Benchmark comparison engine that matches user profile to benchmark data
-    and determines readiness level.
+    Benchmark comparison engine that matches user profile to benchmark data,
+    determines readiness, and calculates data reliability.
     """
     
     @staticmethod
@@ -20,85 +21,90 @@ class BenchmarkEngine:
         tech_stack: Optional[List[str]] = None
     ) -> Optional[Benchmark]:
         """
-        Find the best matching benchmark for the given profile.
-        
-        Args:
-            db: Database session
-            role_id: Role ID
-            years_of_experience: Years of experience
-            company_type: Company type (service, startup, product)
-            target_level: Target level (e.g., "Senior", "Lead")
-            location: Optional location filter
-            tech_stack: Optional list of technologies
-            
-        Returns:
-            Matching Benchmark object or None
+        Find the best matching benchmark for the given profile with dual-matching logic.
         """
-        # Base query
+        # Base query using experience_min/max
         base_query = db.query(Benchmark).filter(
             Benchmark.role_id == role_id,
             Benchmark.company_type == company_type.lower(),
-            Benchmark.yoe_min <= years_of_experience,
-            Benchmark.yoe_max >= years_of_experience
+            Benchmark.experience_min <= years_of_experience,
+            Benchmark.experience_max >= years_of_experience
         )
         
-        # Try with target_level filter first if provided
+        # Dual-Matching Logic: Prioritize target_level if provided
         if target_level:
-            # Try exact match first
-            exact_level_query = base_query.filter(Benchmark.target_level == target_level)
-            result = exact_level_query.first()
+            # Try exact match
+            result = base_query.filter(Benchmark.target_level == target_level).first()
             if result:
                 return result
             
-            # Try partial match (e.g., "Senior Software" contains "Senior")
-            for level in ["Junior", "Mid-level", "Senior", "Lead", "Staff", "Principal"]:
+            # Try partial match
+            levels = ["Junior", "Mid-level", "Senior", "Lead", "Staff", "Principal"]
+            for level in levels:
                 if level.lower() in target_level.lower():
-                    partial_match_query = base_query.filter(Benchmark.target_level == level)
-                    result = partial_match_query.first()
+                    result = base_query.filter(Benchmark.target_level == level).first()
                     if result:
                         return result
             
-        # 1. Try to find an exact match (Location + Tech)
+        # 1. Exact Match (Location + Tech)
         if location and tech_stack:
             for tech in tech_stack:
-                exact_match = base_query.filter(
+                match = base_query.filter(
                     Benchmark.location == location,
                     Benchmark.tech_stack == tech
                 ).first()
-                if exact_match:
-                    return exact_match
+                if match: return match
                     
-        # 2. Try to find location match only
+        # 2. Location Match
         if location:
-            location_match = base_query.filter(Benchmark.location == location).first()
-            if location_match:
-                return location_match
+            match = base_query.filter(Benchmark.location == location).first()
+            if match: return match
                 
-        # 3. Try to find tech match only
+        # 3. Tech Match
         if tech_stack:
             for tech in tech_stack:
-                tech_match = base_query.filter(Benchmark.tech_stack == tech).first()
-                if tech_match:
-                    return tech_match
+                match = base_query.filter(Benchmark.tech_stack == tech).first()
+                if match: return match
                     
-        # 4. Fallback to general benchmark (without target_level filter)
+        # 4. Fallback to general benchmark
         return base_query.first()
     
     @staticmethod
-    def determine_readiness(
-        overall_score: float,
-        benchmark: Benchmark
-    ) -> str:
+    def calculate_reliability_index(benchmark: Benchmark) -> Dict[str, any]:
         """
-        Determine readiness level based on score and benchmark thresholds.
-        
-        Args:
-            overall_score: Overall assessment score (1-4 scale)
-            benchmark: Benchmark object with thresholds
+        Calculate Benchmark Reliability Index based on freshness and source diversity.
+        """
+        if not benchmark:
+            return {"score": 0.0, "level": "Unknown", "source_count": 0}
             
-        Returns:
-            Readiness level: "Ready", "Near Ready", or "Not Ready"
-        """
+        # Freshness Weight (max 0.5)
+        current_year = datetime.now().year
+        year_diff = current_year - (benchmark.year or 2024)
+        if year_diff <= 0: freshness = 0.5
+        elif year_diff == 1: freshness = 0.4
+        elif year_diff == 2: freshness = 0.2
+        else: freshness = 0.1
+        
+        # Source Diversity (max 0.5)
+        sources = benchmark.source.split(";") if benchmark.source else []
+        source_count = len(sources)
+        diversity = min(source_count * 0.17, 0.5) # 3+ sources = 0.5 pts
+        
+        score = freshness + diversity
+        level = "High" if score > 0.8 else "Medium" if score > 0.5 else "Low"
+        
+        return {
+            "score": round(score, 2),
+            "level": level,
+            "source_count": source_count,
+            "is_fresh": year_diff <= 1,
+            "sources": sources
+        }
+
+    @staticmethod
+    def determine_readiness(overall_score: float, benchmark: Benchmark) -> str:
+        """Determine readiness level based on score and benchmark thresholds."""
+        if not benchmark: return "Unknown"
         if overall_score >= benchmark.ready_threshold:
             return "Ready"
         elif overall_score >= benchmark.near_ready_threshold:
@@ -107,27 +113,21 @@ class BenchmarkEngine:
             return "Not Ready"
     
     @staticmethod
-    def get_expected_salary_range(benchmark: Benchmark) -> Dict[str, float]:
-        """
-        Get expected salary range from benchmark.
-        
-        Args:
-            benchmark: Benchmark object
-            
-        Returns:
-            Dictionary with min and max salary
-        """
+    def get_expected_salary_range(benchmark: Benchmark) -> Dict[str, any]:
+        """Get enhanced salary range including median and reliability."""
+        if not benchmark: return {}
+        reliability = BenchmarkEngine.calculate_reliability_index(benchmark)
         return {
             "min": benchmark.salary_min,
             "max": benchmark.salary_max,
-            "median": (benchmark.salary_min + benchmark.salary_max) / 2
+            "median": (benchmark.salary_min + benchmark.salary_max) / 2,
+            "reliability": reliability,
+            "currency": "INR"
         }
 
     @staticmethod
     def get_next_level_benchmark(db: Session, current_benchmark: Benchmark) -> Optional[Benchmark]:
-        """
-        Fetch the benchmark for the level immediately above the current one.
-        """
+        """Fetch benchmark for the level immediately above."""
         levels = ["Junior", "Mid-level", "Senior", "Lead", "Staff", "Principal"]
         try:
             current_idx = levels.index(current_benchmark.target_level)
@@ -138,6 +138,6 @@ class BenchmarkEngine:
                     Benchmark.company_type == current_benchmark.company_type,
                     Benchmark.target_level == next_level
                 ).first()
-        except ValueError:
+        except (ValueError, AttributeError):
             pass
         return None

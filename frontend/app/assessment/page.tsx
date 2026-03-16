@@ -1,15 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     rolesAPI,
-    assessmentAPI
+    assessmentAPI,
+    profileAPI
 } from '@/app/lib/api';
-import type { Role, Question, ProfileFormData } from '@/app/types';
+import type { Role, Question, ProfileFormData, Stack, Certificate } from '@/app/types';
 import GlassCard from '../components/GlassCard';
 import CustomInput from '../components/CustomInput';
+import CustomSelect from '../components/CustomSelect';
+import MultiSelect from '../components/MultiSelect';
 import {
     Sparkles,
     ArrowRight,
@@ -18,8 +21,13 @@ import {
     CheckCircle2,
     AlertCircle,
     Target,
-    BarChart3
+    BarChart3,
+    Monitor,
+    Server,
+    Layers,
+    Cloud
 } from 'lucide-react';
+import Image from 'next/image';
 
 type Step = 'role' | 'profile' | 'questions' | 'loading' | 'error';
 
@@ -27,6 +35,8 @@ export default function Assessment() {
     const router = useRouter();
     const [step, setStep] = useState<Step>('role');
     const [roles, setRoles] = useState<Role[]>([]);
+    const [stacks, setStacks] = useState<Stack[]>([]);
+    const [certificates, setCertificates] = useState<Certificate[]>([]);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [selectedRole, setSelectedRole] = useState<number | null>(null);
     const [profileData, setProfileData] = useState<Partial<ProfileFormData>>({});
@@ -37,8 +47,34 @@ export default function Assessment() {
     const [assessmentId, setAssessmentId] = useState<number | null>(null);
 
     useEffect(() => {
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+        if (!token) {
+            router.replace(`/login?redirect=${encodeURIComponent("/assessment")}`);
+            return;
+        }
+
         loadRoles();
-    }, []);
+        loadStacks();
+        loadCertificates();
+    }, [router]);
+
+    const loadCertificates = async () => {
+        try {
+            const data = await profileAPI.getCertificates();
+            setCertificates(data);
+        } catch (err) {
+            console.error('Failed to load certificates:', err);
+        }
+    };
+
+    const loadStacks = async () => {
+        try {
+            const data = await profileAPI.getStacks();
+            setStacks(data);
+        } catch (err) {
+            console.error('Failed to load stacks:', err);
+        }
+    };
 
     const loadRoles = async () => {
         try {
@@ -67,7 +103,8 @@ export default function Assessment() {
                 target_role: profileData.target_role || '',
                 location: profileData.location,
                 current_level: profileData.current_level,
-                tech_stack: []
+                tech_stack: profileData.tech_stack || [],
+                certifications: profileData.certifications || []
             };
             const startRes = await assessmentAPI.start(fullProfile);
             setAssessmentId(startRes.assessment_id);
@@ -112,15 +149,22 @@ export default function Assessment() {
         ? ((Object.keys(answers).length) / questions.length) * 100
         : 0;
 
+    const getRoleIcon = (roleName: string) => {
+        const name = roleName.toLowerCase();
+        if (name.includes('frontend')) return <Monitor size={24} />;
+        if (name.includes('backend')) return <Server size={24} />;
+        if (name.includes('full')) return <Layers size={24} />;
+        if (name.includes('devops')) return <Cloud size={24} />;
+        return <Target size={24} />;
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 py-12 px-6">
             <div className="max-w-4xl mx-auto">
                 {/* Global Progress Indicator */}
                 <div className="flex justify-between items-center mb-12">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <Sparkles size={20} className="text-white" />
-                        </div>
+                    <div className="flex items-center">
+                        <Image src="/logo.png" alt="Career OS" width={100} height={100} />
                         <div>
                             <h2 className="text-sm font-bold text-slate-900">Career OS</h2>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocol v1.0</p>
@@ -156,7 +200,7 @@ export default function Assessment() {
                                     >
                                         <div className={`mx-auto w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-colors ${selectedRole === role.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
                                             }`}>
-                                            <Target size={24} />
+                                            {getRoleIcon(role.name)}
                                         </div>
                                         <h3 className={`text-xl font-bold mb-2 ${selectedRole === role.id ? 'text-slate-900' : 'text-slate-700'}`}>{role.name}</h3>
                                         <p className="text-sm text-slate-500 leading-relaxed font-medium">{role.description}</p>
@@ -204,24 +248,23 @@ export default function Assessment() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2">
                                         <CustomInput
                                             label="Years of Experience"
-                                            type="number" step="0.5" min="0" required
+                                            type="number" step="0.5" min="0" max="50" required
                                             value={profileData.years_of_experience || ''}
                                             onChange={(e) => setProfileData(p => ({ ...p, years_of_experience: parseFloat(e.target.value) }))}
                                         />
 
-                                        <div className="input-container">
-                                            <select
-                                                required className="input"
-                                                value={profileData.company_type || ''}
-                                                onChange={(e) => setProfileData(p => ({ ...p, company_type: e.target.value as any }))}
-                                            >
-                                                <option value="" disabled hidden></option>
-                                                <option value="Product">Product Company</option>
-                                                <option value="Startup">Startup</option>
-                                                <option value="Service">Service Agency</option>
-                                            </select>
-                                            <label className="input-label">Company Type</label>
-                                        </div>
+                                        <CustomSelect
+                                            label="Company Type"
+                                            required
+                                            value={profileData.company_type || ''}
+                                            onChange={(val) => setProfileData(p => ({ ...p, company_type: val as any }))}
+                                            options={[
+                                                { value: "Product", label: "Product" },
+                                                { value: "Service", label: "Service" },
+                                                { value: "Startup", label: "Startup" },
+                                                { value: "MNC", label: "MNC" }
+                                            ]}
+                                        />
 
                                         <CustomInput
                                             label="Current Annual Salary (INR)"
@@ -251,6 +294,29 @@ export default function Assessment() {
                                             placeholder="San Francisco, Remote, etc."
                                             value={profileData.location || ''}
                                             onChange={(e) => setProfileData(p => ({ ...p, location: e.target.value }))}
+                                        />
+
+                                        <MultiSelect
+                                            label=""
+                                            options={stacks.map(s => ({ id: s.name, label: s.name }))}
+                                            selectedValues={profileData.tech_stack || []}
+                                            placeholder="Select your core technologies..."
+                                            required
+                                            onChange={(values) => setProfileData(p => ({
+                                                ...p,
+                                                tech_stack: values as string[]
+                                            }))}
+                                        />
+
+                                        <MultiSelect
+                                            label="Certifications"
+                                            options={certificates.map(c => ({ id: c.name, label: c.name }))}
+                                            selectedValues={profileData.certifications || []}
+                                            placeholder="AWS, Azure, GCP, etc."
+                                            onChange={(values) => setProfileData(p => ({
+                                                ...p,
+                                                certifications: values as string[]
+                                            }))}
                                         />
                                     </div>
 

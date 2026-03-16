@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
-from database import init_db
+
 
 # Import routes
-from routes import roles, assessment, report, auth
+from routes import roles, assessment, report, auth ,profile
 
 # Create FastAPI app
 app = FastAPI(
@@ -14,6 +14,8 @@ app = FastAPI(
 )
 
 # Configure CORS
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -27,13 +29,10 @@ app.include_router(roles.router)
 app.include_router(assessment.router)
 app.include_router(report.router)
 app.include_router(auth.router)
+app.include_router(profile.router)
 
 
-@app.on_event("startup")
-def on_startup():
-    """Initialize database and seed data on startup."""
-    from seeds.seed_all import seed_all
-    seed_all()
+
 
 
 @app.get("/")

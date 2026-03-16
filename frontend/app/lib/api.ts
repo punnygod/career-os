@@ -105,8 +105,24 @@ export const authAPI = {
         const response = await api.post('/api/auth/login', { email, password });
         return response.data;
     },
+    socialLogin: async (email: string, provider: string): Promise<AuthResponse> => {
+        const response = await api.post('/api/auth/social-login', { email, provider });
+        return response.data;
+    },
     saveAssessment: async (assessmentId: number): Promise<void> => {
         await api.post('/api/auth/save-assessment', { assessment_id: assessmentId });
+    },
+};
+
+// Profile API
+export const profileAPI = {
+    getStacks: async (): Promise<any[]> => {
+        const response = await api.get('/api/profile/meta/stacks');
+        return response.data;
+    },
+    getCertificates: async (): Promise<any[]> => {
+        const response = await api.get('/api/profile/meta/certificates');
+        return response.data;
     },
 };
 

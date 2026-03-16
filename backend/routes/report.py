@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/report", tags=["report"])
 
 class DimensionScore(BaseModel):
     dimension: str
+    category: str
     score: float
     benchmark_score: float
     status: str  # "strong", "adequate", "weak"
@@ -114,8 +115,14 @@ def get_report(
         tech_stack=assessment.tech_stack
     )
     
-    # Re-calculate scores live using latest engine logic
-    questions = db.query(Question).filter(Question.role_id == assessment.role_id).all()
+    # Re-calculate scores live using latest engine logic (including role 0)
+    from sqlalchemy import or_
+    questions = db.query(Question).filter(
+        or_(
+            Question.role_id == assessment.role_id,
+            Question.role_id == 0
+        )
+    ).all()
     scores = ScoringEngine.calculate_scores(assessment.answers, questions)
     dimension_scores = scores["dimension_scores"]
     overall_score = scores["overall_score"]
@@ -126,51 +133,95 @@ def get_report(
         threshold=70.0  # Normalized 0-100 threshold
     )
     
-    # Format dimension scores and radar chart data
+    # Format detailed dimension scores list
     dimension_scores_list = []
     benchmark_val = benchmark.ready_threshold if benchmark else 80.0
     
-    for dimension, score in dimension_scores.items(): # Changed from assessment.dimension_scores
+    for dimension, score in dimension_scores.items():
+        # Find category for this dimension
+        category = "Other"
+        for cat, dims in ScoringEngine.DIMENSION_GROUPS.items():
+            if dimension in dims:
+                category = cat
+                break
+                
         status = "strong" if score >= 85 else "adequate" if score >= 70 else "weak"
         dimension_scores_list.append(DimensionScore(
             dimension=dimension,
+            category=category,
             score=score,
             benchmark_score=benchmark_val,
             status=status
         ))
+    
+    # Generate aggregated category scores for Radar Chart
+    category_scores = ScoringEngine.aggregate_scores_by_category(dimension_scores)
+    for category, score in category_scores.items():
         radar_chart_data.append(RadarChartItem(
-            dimension=dimension,
+            dimension=category,
             user_score=score,
             benchmark_score=benchmark_val
         ))
     
     if benchmark:
+        # Extension: Fetch multipliers (Handle multiple stacks/certs)
+        from services.stack_module import StackExtensionModule
+        from services.certification_module import CertificationExtensionModule
+        
+        stack_multiplier = 1.0
+        # Defensive check: ensure tech_stack is a list if it comes as a JSON string
+        ts = assessment.tech_stack
+        if isinstance(ts, str):
+            import json
+            try: ts = json.loads(ts)
+            except: ts = []
+            
+        if ts and isinstance(ts, list):
+            multipliers = [StackExtensionModule.get_stack_multiplier(db, s) for s in ts]
+            stack_multiplier = max(multipliers) if multipliers else 1.0
+        elif assessment.primary_stack:
+            stack_multiplier = StackExtensionModule.get_stack_multiplier(db, assessment.primary_stack)
+
+        cert_multiplier = CertificationExtensionModule.get_certificate_multiplier(db, assessment.certifications)
+        
         salary_range = BenchmarkEngine.get_expected_salary_range(benchmark)
+        
+        # Apply multipliers to the range for display
+        adj_min = salary_range["min"] * stack_multiplier * cert_multiplier
+        adj_max = salary_range["max"] * stack_multiplier * cert_multiplier
+        adj_median = salary_range["median"] * stack_multiplier * cert_multiplier
+
+        # Detailed alignment analysis (internal), but expose only status string in API
+        alignment_details = SalaryAnalyzer.analyze_salary(
+            assessment.current_salary,
+            salary_range["min"],
+            salary_range["max"],
+            stack_multiplier=stack_multiplier,
+            cert_multiplier=cert_multiplier,
+            behavioral_score=category_scores.get("Maturity & Soft Skills", 0),
+            reliability_weight=reliability["score"],
+        )
+
         salary_gap = SalaryAnalyzer.get_salary_gap(
             assessment.current_salary,
-            salary_range["min"],
-            salary_range["max"]
+            salary_range["median"],
+            stack_multiplier=stack_multiplier,
+            cert_multiplier=cert_multiplier,
+            behavioral_score=category_scores.get("Maturity & Soft Skills", 0),
         )
-        potential_roi = SalaryAnalyzer.calculate_roi(
-            assessment.current_salary,
-            salary_range["median"]
-        )
+        potential_roi = SalaryAnalyzer.calculate_roi(assessment.current_salary, adj_median)
         market_percentile = SalaryAnalyzer.get_market_percentile(
             assessment.current_salary,
-            salary_range["min"],
-            salary_range["max"]
+            adj_min,
+            adj_max
         )
         
         salary_info = SalaryInfo(
             current=assessment.current_salary,
-            expected_min=salary_range["min"],
-            expected_max=salary_range["max"],
-            expected_median=salary_range["median"],
-            alignment=SalaryAnalyzer.analyze_salary(
-                assessment.current_salary,
-                salary_range["min"],
-                salary_range["max"]
-            ),
+            expected_min=adj_min,
+            expected_max=adj_max,
+            expected_median=adj_median,
+            alignment=alignment_details["status"],
             gap=salary_gap,
             potential_roi=potential_roi,
             market_percentile=market_percentile
@@ -241,10 +292,10 @@ def get_roadmap(
     if not assessment.is_complete:
         raise HTTPException(status_code=400, detail="Assessment not completed")
     
-    # Identify weak dimensions
+    # Identify weak dimensions (using 0-100 threshold)
     weak_dimensions = ScoringEngine.identify_weak_dimensions(
         assessment.dimension_scores,
-        threshold=3.0
+        threshold=70.0
     )
     
     # Generate roadmap

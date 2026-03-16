@@ -10,33 +10,45 @@ import {
     Tooltip,
     Legend,
 } from 'chart.js';
-import type { DimensionScore } from '../types';
+import type { RadarChartItem } from '../types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 interface DimensionRadarProps {
-    scores: DimensionScore[];
+    data: RadarChartItem[];
 }
 
-export default function DimensionRadar({ scores }: DimensionRadarProps) {
-    const dimensions = scores.map(s => s.dimension);
-    const values = scores.map(s => s.score);
+export default function DimensionRadar({ data: radarData }: DimensionRadarProps) {
+    const dimensions = radarData.map(s => s.dimension);
+    const userScores = radarData.map(s => s.user_score);
+    const benchmarkScores = radarData.map(s => s.benchmark_score);
 
     const data = {
         labels: dimensions,
         datasets: [
             {
-                label: 'Score',
-                data: values,
-                backgroundColor: 'rgba(79, 70, 229, 0.1)', // Indigo 600 with opacity
-                borderColor: '#4f46e5', // Indigo 600
-                borderWidth: 2,
+                label: 'Your Score',
+                data: userScores,
+                backgroundColor: 'rgba(79, 70, 229, 0.25)', // Increased opacity
+                borderColor: '#6366f1', // Indigo 500 (lighter/brighter)
+                borderWidth: 3,
                 pointBackgroundColor: '#4f46e5',
                 pointBorderColor: '#fff',
                 pointHoverBackgroundColor: '#fff',
                 pointHoverBorderColor: '#4f46e5',
-                pointRadius: 4,
-                pointHoverRadius: 6,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            },
+            {
+                label: 'Benchmark',
+                data: benchmarkScores,
+                backgroundColor: 'rgba(203, 213, 225, 0.2)', // Slate 300 with opacity
+                borderColor: '#94a3b8', // Slate 400
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                fill: true,
             },
         ],
     };

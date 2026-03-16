@@ -1,42 +1,38 @@
 from services.career_fit_engine import CareerFitEngine
 
 def test_determine_company_fit_service():
+    # Strong in Backend Fundamentals + Architecture + Code Quality (Maturity)
     scores = {
-        "Core Technical Skills": 90.0,
-        "Code Quality & Practices": 90.0,
-        "Architecture & Design": 70.0,
-        "Ownership & Impact": 50.0,
-        "Communication & Influence": 50.0
+        "Backend Fundamentals": 90.0,
+        "Code Quality & Engineering Practices": 90.0,
+        "Programming Fundamentals": 80.0
     }
-    # service_score = (90 * 1.5 + 90 * 1.5 + 70) / 4 = (135 + 135 + 70) / 4 = 340 / 4 = 85
-    # startup_score = (50 * 2 + 90 + 50) / 4 = (100 + 90 + 50) / 4 = 240 / 4 = 60
-    # product_score = (70 * 1.5 + 50 * 1.5 + 50) / 4 = (105 + 75 + 50) / 4 = 230 / 4 = 57.5
-    assert CareerFitEngine.determine_company_fit(scores) == "service"
+    result = CareerFitEngine.determine_company_fit(scores)
+    assert result["best_fit"] == "service"
 
 def test_determine_company_fit_startup():
+    # Strong in Ownership & Accountability + Problem Solving
     scores = {
-        "Ownership & Impact": 95.0,
-        "Core Technical Skills": 70.0,
-        "Communication & Influence": 80.0,
-        "Architecture & Design": 50.0,
-        "Code Quality & Practices": 50.0
+        "Ownership & Accountability": 95.0,
+        "Problem Solving & Ambiguity Handling": 90.0,
+        "Execution & Delivery Discipline": 90.0
     }
-    # startup_score = (95 * 2 + 70 + 80) / 4 = (190 + 70 + 80) / 4 = 340 / 4 = 85
-    assert CareerFitEngine.determine_company_fit(scores) == "startup"
+    result = CareerFitEngine.determine_company_fit(scores)
+    assert result["best_fit"] == "startup"
 
-def test_determine_company_fit_product():
+def test_detect_friction_signals():
+    # High technical, low maturity
     scores = {
-        "Architecture & Design": 90.0,
-        "Communication & Influence": 90.0,
-        "Ownership & Impact": 70.0,
-        "Core Technical Skills": 50.0,
-        "Code Quality & Practices": 50.0
+        "Backend Fundamentals": 90.0,
+        "JavaScript Fundamentals": 90.0,
+        "Collaboration & Cross-Functional Communication": 30.0,
+        "Ownership & Accountability": 40.0
     }
-    # product_score = (90 * 1.5 + 90 * 1.5 + 70) / 4 = (135 + 135 + 70) / 4 = 85
-    assert CareerFitEngine.determine_company_fit(scores) == "product"
+    result = CareerFitEngine.determine_company_fit(scores)
+    assert any("Growth Bottleneck" in flag for flag in result["risk_flags"])
 
 def test_get_fit_explanation():
-    assert "service companies" in CareerFitEngine.get_fit_explanation("service")
+    assert "service-based" in CareerFitEngine.get_fit_explanation("service")
     assert "startup environments" in CareerFitEngine.get_fit_explanation("startup")
     assert "product companies" in CareerFitEngine.get_fit_explanation("product")
-    assert CareerFitEngine.get_fit_explanation("unknown") == ""
+    assert "Big Tech" in CareerFitEngine.get_fit_explanation("enterprise")

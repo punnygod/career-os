@@ -12,6 +12,7 @@ export default function CustomInput({ label, value, ...props }: CustomInputProps
             <input
                 className="input"
                 placeholder=" "
+                value={value}
                 {...props}
             />
             <label className="input-label">

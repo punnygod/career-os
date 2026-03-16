@@ -22,7 +22,7 @@ export default function ScoreGauge({ score, label, size = 'md' }: ScoreGaugeProp
     return (
         <div className="flex flex-col items-center gap-2">
             <div className={`relative ${config.container}`}>
-                <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 100 100">
+                <svg className="transform -rotate-90 w-full h-full drop-shadow-[0_0_15px_rgba(79,70,229,0.3)]" viewBox="0 0 100 100">
                     {/* Track */}
                     <circle
                         cx="50"
@@ -32,7 +32,7 @@ export default function ScoreGauge({ score, label, size = 'md' }: ScoreGaugeProp
                         strokeWidth={config.stroke}
                         fill="none"
                     />
-                    {/* Progress */}
+                    {/* Progress with gradient-like shadow */}
                     <motion.circle
                         cx="50"
                         cy="50"

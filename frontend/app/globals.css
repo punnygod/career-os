@@ -117,12 +117,21 @@
     box-shadow: 0 0 0 4px #eef2ff;
   }
 
+  .input::placeholder {
+    @apply text-transparent transition-colors duration-200;
+  }
+
+  .input:focus::placeholder {
+    @apply text-slate-400;
+  }
+
   .input-label {
     @apply absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium pointer-events-none transition-all duration-200;
   }
 
   .input:focus~.input-label,
-  .input:not(:placeholder-shown)~.input-label {
+  .input:not(:placeholder-shown)~.input-label,
+  .input[data-has-value="true"]~.input-label {
     @apply -top-2.5 left-3 text-xs font-bold text-indigo-600 bg-white px-1;
     transform: translateY(0);
   }

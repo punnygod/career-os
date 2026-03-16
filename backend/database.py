@@ -4,9 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from config import settings
 
 # Create database engine
+# Create database engine
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=settings.db_pool_recycle,
     echo=settings.debug
 )
 
@@ -37,5 +41,8 @@ def init_db():
     from models.benchmark import Benchmark
     from models.assessment import Assessment
     from models.user import User
+    from models.stack import Stack
+    from models.certificate import Certificate
+    from models.user_profile import UserProfile
     
     Base.metadata.create_all(bind=engine)

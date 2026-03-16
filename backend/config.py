@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     
     # Database
     database_url: str
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_recycle: int = 1800
     
     @field_validator("database_url", mode="before")
     @classmethod
@@ -37,4 +40,6 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 
+
 settings = Settings()
+

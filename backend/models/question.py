@@ -17,8 +17,17 @@ class Question(Base):
     # Format: "1: Basic understanding|2: Intermediate|3: Advanced|4: Expert"
     answer_options = Column(Text, nullable=False)
     
+    # New extension columns
+    stack_name = Column(String, nullable=True)
+    certificate_name = Column(String, nullable=True)
+    experience_min = Column(Float, default=0.0)
+    experience_max = Column(Float, default=100.0)
+    
     # Weight for this question in the dimension score (default 1.0)
     weight = Column(Float, default=1.0)
+    
+    # Flag to distinguish behavioral/maturity questions from technical ones
+    is_behavioral = Column(Integer, default=0) # 0 for false, 1 for true
     
     def __repr__(self):
         return f"<Question(id={self.id}, dimension={self.dimension})>"
