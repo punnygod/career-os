@@ -1,24 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: career_os_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    # Notice: ports are removed for security in production
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Backend API
   backend:
     build:
@@ -29,12 +11,9 @@ services:
     ports:
       - "8000:8000" # Consider putting this behind an AWS Application Load Balancer or Nginx
     environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      DATABASE_URL: ${DATABASE_URL}
       SECRET_KEY: ${BACKEND_SECRET_KEY}
       CORS_ORIGINS: ${FRONTEND_PROD_URL}
-    depends_on:
-      postgres:
-        condition: service_healthy
     command: gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
 
   # Frontend Dashboard
@@ -52,6 +31,3 @@ services:
       NEXT_PUBLIC_API_URL: ${BACKEND_PROD_URL}
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
