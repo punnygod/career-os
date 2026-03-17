@@ -32,7 +32,6 @@ Thumbs.db
 
 # Node (for frontend)
 node_modules/
-.next/
 out/
 build/
 dist/

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { authAPI } from "@/app/lib/api";
 import { Loader2 } from "lucide-react";
 
-export default function SocialCallbackPage() {
+function SocialCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -36,13 +36,26 @@ export default function SocialCallbackPage() {
   }, [status, session, provider, redirect, router]);
 
   return (
+    <div className="flex flex-col items-center gap-3">
+      <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+      <p className="text-sm text-slate-600">
+        Completing secure sign-in. Please wait...
+      </p>
+    </div>
+  );
+}
+
+export default function SocialCallbackPage() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-        <p className="text-sm text-slate-600">
-          Completing secure sign-in. Please wait...
-        </p>
-      </div>
+      <Suspense fallback={
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+          <p className="text-sm text-slate-600">Loading...</p>
+        </div>
+      }>
+        <SocialCallbackContent />
+      </Suspense>
     </div>
   );
 }

@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/assessment/page": "app/assessment/page.js",
+  "/auth/social-callback/page": "app/auth/social-callback/page.js",
+  "/dashboard/[assessmentId]/page": "app/dashboard/[assessmentId]/page.js",
+  "/example-report/page": "app/example-report/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/register/page": "app/register/page.js",
+  "/roadmap/[assessmentId]/page": "app/roadmap/[assessmentId]/page.js"
+}

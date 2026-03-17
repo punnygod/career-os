@@ -122,7 +122,8 @@ export interface StartAssessmentResponse {
 export interface AuthResponse {
     access_token: string;
     token_type: string;
-    user: User;
+    user_id: number;
+    email: string;
 }
 
 // Form Types

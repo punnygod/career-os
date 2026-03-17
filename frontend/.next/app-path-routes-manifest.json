@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
+  "/assessment/page": "/assessment",
+  "/auth/social-callback/page": "/auth/social-callback",
+  "/dashboard/[assessmentId]/page": "/dashboard/[assessmentId]",
+  "/example-report/page": "/example-report",
+  "/favicon.ico/route": "/favicon.ico",
+  "/login/page": "/login",
+  "/page": "/",
+  "/register/page": "/register",
+  "/roadmap/[assessmentId]/page": "/roadmap/[assessmentId]"
+}
