@@ -1,17 +1,15 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
-# Copy only needed files
+# Install dependencies
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --production
 
 # Copy built app
 COPY .next ./.next
 COPY public ./public
-COPY node_modules ./node_modules
+COPY next.config.js ./
 
 EXPOSE 3000
 
