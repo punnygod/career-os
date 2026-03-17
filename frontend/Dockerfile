@@ -10,7 +10,8 @@ RUN npm install --production && npm install typescript @types/node @types/react 
 # Copy built app
 COPY .next ./.next
 COPY public ./public
-COPY next.config.ts ./
+# Use wildcard to avoid not found errors if the extension varies
+COPY next.config.* ./
 
 EXPOSE 3000
 
