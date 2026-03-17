@@ -4,7 +4,8 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm install --production
+# Next.js requires typescript to load next.config.ts at runtime
+RUN npm install --production && npm install typescript @types/node @types/react --no-save
 
 # Copy built app
 COPY .next ./.next
