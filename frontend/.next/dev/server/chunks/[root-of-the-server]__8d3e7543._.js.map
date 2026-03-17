@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 106, "column": 0}, "map": {"version":3,"sources":["file:///Users/siddheshchavan/Personal/Temp/frontend/app/api/auth/%5B...nextauth%5D/route.ts"],"sourcesContent":["import NextAuth from \"next-auth\";\nimport GoogleProvider from \"next-auth/providers/google\";\nimport GitHubProvider from \"next-auth/providers/github\";\n\nconst handler = NextAuth({\n  providers: [\n    GoogleProvider({\n      clientId: process.env.GOOGLE_CLIENT_ID ?? \"\",\n      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? \"\",\n    }),\n    GitHubProvider({\n      clientId: process.env.GITHUB_CLIENT_ID ?? \"\",\n      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? \"\",\n    }),\n  ],\n  session: {\n    strategy: \"jwt\",\n  },\n});\n\nexport { handler as GET, handler as POST };\n\n"],"names":[],"mappings":";;;;;;AAAA;AACA;AACA;;;;AAEA,MAAM,UAAU,IAAA,kJAAQ,EAAC;IACvB,WAAW;QACT,IAAA,gKAAc,EAAC;YACb,UAAU,QAAQ,GAAG,CAAC,gBAAgB,IAAI;YAC1C,cAAc,QAAQ,GAAG,CAAC,oBAAoB,IAAI;QACpD;QACA,IAAA,gKAAc,EAAC;YACb,UAAU,QAAQ,GAAG,CAAC,gBAAgB,IAAI;YAC1C,cAAc,QAAQ,GAAG,CAAC,oBAAoB,IAAI;QACpD;KACD;IACD,SAAS;QACP,UAAU;IACZ;AACF"}}]
-}
